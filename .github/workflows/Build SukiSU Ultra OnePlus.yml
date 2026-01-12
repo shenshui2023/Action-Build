@@ -951,24 +951,21 @@ jobs:
           echo "Disabling GPUEB for MTK kernel 5.10"
           sed -i '/obj-y.*gpueb/d' kernel_workspace/kernel-5.10/drivers/gpu/mediatek/Makefile
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼ 插入开始 ▼▼▼▼▼▼▼▼▼▼▼▼▼
-      - name: Fix KernelSU Source Code (Final)
+      - name: Fix KernelSU Source Code (True Final)
         run: |
-          echo "=== 正在执行最终修复 ==="
+          echo "=== 正在执行修正后的修复 ==="
           cd kernel_workspace/kernel_platform
           
-          # 1. [变量名修复] 将上层函数中误写的 fp 统一改为 file
-          find . -type f -name "ksud.c" -exec sed -i 's/\bfp->/file->/g' {} +
-          find . -type f -name "ksud.c" -exec sed -i 's/fput(fp)/fput(file)/g' {} +
-          
-          # 2. [可见性修复] 强制启用 file 变量定义 (将 #ifdef 改为 #if 1)
-          # 解决：ksud.c:561 error: use of undeclared identifier 'file'
+          # 1. [可见性修复] 强制启用 file 变量定义 (关键步骤)
+          # 问题根源：ksu_handle_sys_read 里的 struct file *file 被 #ifdef 包裹了，导致后面报错。
+          # 解决方法：把 #ifdef CONFIG_KSU_SYSCALL_HOOK 改成 #if 1，让定义强制生效。
           find . -type f -name "ksud.c" -exec sed -i 's/#ifdef CONFIG_KSU_SYSCALL_HOOK/#if 1/g' {} +
 
-          # 3. [返回值修复] 将 void 函数中的 return false; 改为 return;
-          # 仅针对 ksu_handle_sys_read 函数范围，防止误伤其他函数
+          # 2. [返回值修复] 将 void 函数中的 return false; 改为 return;
+          # 仅针对 ksu_handle_sys_read 函数范围，防止误伤其他函数。
           find . -type f -name "ksud.c" -exec sed -i '/ksu_handle_sys_read/,/^}/ s/return false;/return;/g' {} +
           
-          echo "=== 修复完成，准备编译！ ==="
+          echo "=== 修复完成，变量名保持原样，仅修复宏定义和返回值 ==="
       # ▲▲▲▲▲▲▲▲▲▲▲▲▲ 插入结束 ▲▲▲▲▲▲▲▲▲▲▲▲▲
 
       - name: Build Kernel FAST
