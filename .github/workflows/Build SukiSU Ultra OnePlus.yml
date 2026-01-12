@@ -951,25 +951,24 @@ jobs:
           echo "Disabling GPUEB for MTK kernel 5.10"
           sed -i '/obj-y.*gpueb/d' kernel_workspace/kernel-5.10/drivers/gpu/mediatek/Makefile
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼ 插入开始 ▼▼▼▼▼▼▼▼▼▼▼▼▼
-      - name: Fix KernelSU Source Code Errors
+      - name: Check KernelSU Source Code (Debug)
         run: |
-          echo "正在自动修复 KernelSU 代码错误..."
+          echo "=== 正在打印问题函数的源码 ==="
           cd kernel_workspace/kernel_platform
           
-          # 1. 修复变量名错误 (尝试使用 'filp')
-          # 说明: 内核中 struct file 指针通常命名为 file, fp 或 filp。前两个都错了，这次改用 filp。
-          find . -type f -name "ksud.c" -exec sed -i 's/\bfile->/filp->/g' {} +
-          find . -type f -name "ksud.c" -exec sed -i 's/fput(file)/fput(filp)/g' {} +
+          # 1. 查找 ksud.c 文件位置
+          TARGET_FILE=$(find . -type f -name "ksud.c" | head -n 1)
+          echo "Found file: $TARGET_FILE"
           
-          # 2. 修复 fp 相关的残留 (如果有)
-          find . -type f -name "ksud.c" -exec sed -i 's/\bfp->/filp->/g' {} +
-          find . -type f -name "ksud.c" -exec sed -i 's/fput(fp)/fput(filp)/g' {} +
-
-          # 3. 精准修复返回值错误 (仅针对 ksu_handle_sys_read 函数)
-          # 说明: 之前的全局替换误伤了 check_argv 等函数。现在限制替换范围仅在 ksu_handle_sys_read 函数内部。
-          find . -type f -name "ksud.c" -exec sed -i '/ksu_handle_sys_read/,/^}/ s/return false;/return;/g' {} +
+          # 2. 打印 ksu_handle_sys_read 函数的定义处（看看它的参数到底叫什么）
+          echo "--- Function Definition ---"
+          grep -n -C 5 "void ksu_handle_sys_read" "$TARGET_FILE"
           
-          echo "修复完成！"
+          # 3. 打印报错行（492行）附近的上下文
+          echo "--- Error Context (Lines 480-520) ---"
+          sed -n '480,520p' "$TARGET_FILE"
+          
+          echo "=== 源码打印结束 ==="
       # ▲▲▲▲▲▲▲▲▲▲▲▲▲ 插入结束 ▲▲▲▲▲▲▲▲▲▲▲▲▲
 
       - name: Build Kernel FAST
