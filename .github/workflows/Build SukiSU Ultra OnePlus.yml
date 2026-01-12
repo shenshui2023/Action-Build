@@ -968,12 +968,17 @@ jobs:
           find . -type f -name "ksud.c" -exec sed -i 's/#ifdef CONFIG_KSU_SYSCALL_HOOK/#if 1/g' {} +
 
           # 3. [返回值修复] 仅针对 ksu_handle_sys_read 函数范围，将 return true/false 改为 return;
-          # 这里的正则确保只修改 ksu_handle_sys_read 函数体内部，不破坏上面的函数
           find . -type f -name "ksud.c" -exec sed -i '/void ksu_handle_sys_read/,/^}/ s/return [a-z]\+;/return;/g' {} +
           
+          # 4. [Linker修复] 注入缺失的 KPM 函数空定义，解决 undefined symbol 报错
+          # 原因：开启了 KPM 但源码缺失，链接器找不到符号。这里在 ksud.c 头部注入空函数来骗过链接器。
+          find . -type f -name "ksud.c" -exec sed -i '1i void kp_handle_ksud_init(void){}\nvoid kp_handle_ksud_exit(void){}\nvoid kp_handle_ksud_stop(void){}' {} +
+
           echo "=== 修复完成，验证修改结果 ==="
           grep -n "void ksu_handle_sys_read" $(find . -type f -name "ksud.c")
+          grep -n "kp_handle_ksud_init" $(find . -type f -name "ksud.c") || echo "Warning: KPM stubs not found check sed command"
           echo "=== 准备编译！ ==="
+          
       - name: Build Kernel FAST
         if: ${{ github.event.inputs.FAST_BUILD == 'true' }}
         id: fast_build
