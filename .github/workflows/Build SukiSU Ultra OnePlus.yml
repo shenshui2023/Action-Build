@@ -956,10 +956,18 @@ jobs:
           echo "正在自动修复 KernelSU 代码错误..."
           cd kernel_workspace/kernel_platform
           
-          # 修复 ksud.c 中的变量名错误和返回值错误
-          find . -type f -name "ksud.c" -exec sed -i 's/fput(file);/fput(fp);/g' {} +
-          find . -type f -name "ksud.c" -exec sed -i 's/file->/fp->/g' {} +
-          find . -type f -name "ksud.c" -exec sed -i 's/return false;/return;/g' {} +
+          # 1. 修复变量名错误 (尝试使用 'filp')
+          # 说明: 内核中 struct file 指针通常命名为 file, fp 或 filp。前两个都错了，这次改用 filp。
+          find . -type f -name "ksud.c" -exec sed -i 's/\bfile->/filp->/g' {} +
+          find . -type f -name "ksud.c" -exec sed -i 's/fput(file)/fput(filp)/g' {} +
+          
+          # 2. 修复 fp 相关的残留 (如果有)
+          find . -type f -name "ksud.c" -exec sed -i 's/\bfp->/filp->/g' {} +
+          find . -type f -name "ksud.c" -exec sed -i 's/fput(fp)/fput(filp)/g' {} +
+
+          # 3. 精准修复返回值错误 (仅针对 ksu_handle_sys_read 函数)
+          # 说明: 之前的全局替换误伤了 check_argv 等函数。现在限制替换范围仅在 ksu_handle_sys_read 函数内部。
+          find . -type f -name "ksud.c" -exec sed -i '/ksu_handle_sys_read/,/^}/ s/return false;/return;/g' {} +
           
           echo "修复完成！"
       # ▲▲▲▲▲▲▲▲▲▲▲▲▲ 插入结束 ▲▲▲▲▲▲▲▲▲▲▲▲▲
