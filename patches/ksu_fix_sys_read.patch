@@ -1,0 +1,26 @@
+diff --git a/KernelSU/kernel/ksud.c b/KernelSU/kernel/ksud.c
+index 1234567..abcdef0 100644
+--- a/KernelSU/kernel/ksud.c
++++ b/KernelSU/kernel/ksud.c
+@@ -480,6 +480,8 @@ void ksu_handle_sys_read(unsigned int fd)
+ #ifdef CONFIG_KSU_SYSCALL_HOOK
+     struct file *file = fget(fd);
+     if (!file) {
++        return;
+     }
+
+-    if (!d_is_reg(fp->f_path.dentry)) {
++    if (!d_is_reg(file->f_path.dentry)) {
+         goto out;
+     }
+
+@@ -495,7 +497,7 @@ void ksu_handle_sys_read(unsigned int fd)
+-    const char *short_name = fp->f_path.dentry->d_name.name;
++    const char *short_name = file->f_path.dentry->d_name.name;
+
+@@ -503,7 +505,7 @@ void ksu_handle_sys_read(unsigned int fd)
+-    char *dpath = d_path(&fp->f_path, path, sizeof(path));
++    char *dpath = d_path(&file->f_path, path, sizeof(path));
+
+ out:
+     fput(file);
