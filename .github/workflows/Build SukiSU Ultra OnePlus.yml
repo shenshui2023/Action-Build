@@ -957,25 +957,23 @@ jobs:
           cd kernel_workspace/kernel_platform
           
           # 1. [参数修复] 核心修复：补全 ksu_handle_sys_read 的参数列表，解决 conflicting types 报错
+          # 只修改函数签名，不修改函数体内的变量名
           find . -type f -name "ksud.c" -exec sed -i "s/void ksu_handle_sys_read(unsigned int fd)/void ksu_handle_sys_read(unsigned int fd, char __user *buf, size_t count, loff_t *pos)/" {} +
           
-          # 1.1 [头文件修复] 如果存在对应的头文件声明，也一并修改，防止声明冲突
+          # 1.1 [头文件修复] 防止头文件中存在旧的声明导致冲突
           find . -type f -name "*.h" -exec grep -l "void ksu_handle_sys_read(unsigned int fd)" {} + | xargs -I {} sed -i "s/void ksu_handle_sys_read(unsigned int fd)/void ksu_handle_sys_read(unsigned int fd, char __user *buf, size_t count, loff_t *pos)/" {} || true
 
-          # 2. [变量名修复] 将上层函数中误写的 fp 统一改为 file
-          find . -type f -name "ksud.c" -exec sed -i 's/\bfp->/file->/g' {} +
-          find . -type f -name "ksud.c" -exec sed -i 's/fput(fp)/fput(file)/g' {} +
-          
-          # 3. [可见性修复] 强制启用 file 变量定义 (将 #ifdef 改为 #if 1)
+          # 2. [可见性修复] 强制启用 file 变量定义 (将 #ifdef 改为 #if 1)
+          # 解决可能出现的 undeclared identifier 'file' (仅针对 ksu_handle_sys_read 内部)
           find . -type f -name "ksud.c" -exec sed -i 's/#ifdef CONFIG_KSU_SYSCALL_HOOK/#if 1/g' {} +
 
-          # 4. [返回值修复] 将 void 函数中的 return true/false; 统一改为 return;
-          find . -type f -name "ksud.c" -exec sed -i '/ksu_handle_sys_read/,/^}/ s/return [a-z]\+;/return;/g' {} +
+          # 3. [返回值修复] 仅针对 ksu_handle_sys_read 函数范围，将 return true/false 改为 return;
+          # 这里的正则确保只修改 ksu_handle_sys_read 函数体内部，不破坏上面的函数
+          find . -type f -name "ksud.c" -exec sed -i '/void ksu_handle_sys_read/,/^}/ s/return [a-z]\+;/return;/g' {} +
           
           echo "=== 修复完成，验证修改结果 ==="
           grep -n "void ksu_handle_sys_read" $(find . -type f -name "ksud.c")
           echo "=== 准备编译！ ==="
-
       - name: Build Kernel FAST
         if: ${{ github.event.inputs.FAST_BUILD == 'true' }}
         id: fast_build
