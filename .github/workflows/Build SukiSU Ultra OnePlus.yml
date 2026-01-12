@@ -671,7 +671,17 @@ jobs:
           cd ./common
           GKI_V="${{ env.KANDROID_VERSION }}-${{ env.KERNEL_VERSION }}"
           SUBLEVEL=$(grep '^SUBLEVEL *=' Makefile | head -n1 | cut -d= -f2 | tr -d ' ')
-
+          
+          echo "Applying KernelSU syscall hook fix patch"
+          PATCH_DIR="${GITHUB_WORKSPACE}/kernel_workspace/Action-Build/patches"
+          if [ -f "${PATCH_DIR}/ksu_fix_sys_read_fp.patch" ]; then
+            patch -p1 < "${PATCH_DIR}/ksu_fix_sys_read_fp.patch" || {
+              echo "KernelSU patch failed (maybe already applied)"
+            }
+          else
+            echo "KernelSU patch not found, skip"
+          fi
+          
           if [ "$GKI_V" == "android13-5.15" ] && [ "$SUBLEVEL" -lt 123 ]; then
             echo "修复内核版本为5.15.0~5.15.123仅支持旧版C库造成的一些bug"
             cp ../../Action-Build/patches/fix_5.15.legacy ./fix_5.15.legacy.patch
